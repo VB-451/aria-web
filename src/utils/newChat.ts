@@ -1,5 +1,5 @@
 export const newChat = async () => {
-    await fetch(`http://localhost:4000/chat`, {
+    await fetch(`${import.meta.env.VITE_BACK_URL}/chat/last-messages`, {
         method: "DELETE",
         headers: {
             'Content-Type': 'application/json',

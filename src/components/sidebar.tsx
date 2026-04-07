@@ -9,7 +9,7 @@ export default function Sidebar() {
     }
 
     return (
-        <div className="absolute top-0 left-0 h-screen w-[52px] bg-background border-r border-gray-800 flex flex-col items-center z-3">
+        <div className="absolute top-0 left-0 h-screen w-[52px] bg-background border-r border-gray-800 flex flex-col items-center z-6">
             <button className="mt-3 p-2 rounded-xl hover:bg-[#26282a] cursor-pointer"
             onClick={handleNewChat}
             >
