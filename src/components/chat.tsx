@@ -15,7 +15,8 @@ export default function Chat() {
     const [input, setInput] = useState("");
     const [showShortCuts, setShowShortCuts] = useState(true);
     const [loading, setLoading] = useState(false);
-    const [counter, setCounter] = useState(1);
+    const [streaming, setStreaming] = useState<boolean>(false);
+    const [counter, setCounter] = useState(-5);
 
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -62,9 +63,10 @@ export default function Chat() {
         const getData = async () =>{
             const lastMessages = await getMessages();
             setMessages(lastMessages.messages);
+            setCounter(lastMessages.counter);
+            console.log(lastMessages);
             if(lastMessages.messages.length){
                 setShowShortCuts(false);
-                setCounter(lastMessages.counter);
             }
         }
         getData();
@@ -72,7 +74,7 @@ export default function Chat() {
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages, loading]);
+    }, [messages]);
 
     useEffect(() => {
         if (!inputRef.current) return
@@ -83,30 +85,81 @@ export default function Chat() {
         buttonRef.current.style.height = inputRef.current.offsetHeight + "px";
     }, [input]);
 
+    // const handleSendMessage = async (text?: string) => {
+    //     const messageToSend = text ?? input;
+    //     if (!messageToSend) return;
+    //     setCounter(prev => prev + 1);
+    //     setMessages(prev => [
+    //         ...prev,
+    //         { role: "user", content: messageToSend, id: counter }
+    //     ]);
+    //     setInput("");
+    //     setLoading(true);
+    //     setShowShortCuts(false)
+    //     const data = await sendMessage(messageToSend);
+    //     console.log(data)
+    //     setLoading(false);
+    //     setMessages(prev => [
+    //         ...prev,
+    //         {
+    //             role: "assistant",
+    //             content: data.reply ?? "Server error",
+    //             id: data.id,
+    //             step1_decision: data.step1_decision
+    //         }
+    //     ]);
+    // }
+
     const handleSendMessage = async (text?: string) => {
         const messageToSend = text ?? input;
         if (!messageToSend) return;
+
         setCounter(prev => prev + 1);
+
         setMessages(prev => [
             ...prev,
-            { role: "user", content: messageToSend, id: counter }
+            { role: "user", content: messageToSend, id: counter },
+            { role: "assistant", content: "", id: counter}
         ]);
+
         setInput("");
         setLoading(true);
-        setShowShortCuts(false)
-        const data = await sendMessage(messageToSend);
-        console.log(data)
-        setLoading(false);
-        setMessages(prev => [
-            ...prev,
-            {
-                role: "assistant",
-                content: data.reply ?? "Server error",
-                id: data.id,
-                step1_decision: data.step1_decision
+        setShowShortCuts(false);
+
+        let accumulated = "";
+
+        await sendMessage(
+            messageToSend,
+
+            (chunk) => {
+                accumulated += chunk;
+                setLoading(false);
+                setStreaming(true)
+                setMessages(prev =>
+                    prev.map(msg =>
+                        (msg.id === counter) && (msg.role === "assistant")
+                            ? { ...msg, content: accumulated }
+                            : msg
+                    )
+                );
+            },
+
+            (meta) => {
+                setStreaming(false)
+                setMessages(prev =>
+                    prev.map(msg =>
+                        (msg.id === counter) && (msg.role === "assistant")
+                            ? {
+                                ...msg,
+                                id: meta.id,
+                                step1_decision: meta.step1_decision
+                            }
+                            : msg
+                    )
+                );
             }
-        ]);
-    }
+        );
+    };
 
     const handleShortCut = (prompt: string) => {
         if(!loading){
@@ -140,7 +193,7 @@ export default function Chat() {
                         {messages.map((message, index) => {
                             if (message.role === "user") {
                                 return <Question key={index} content={message.content} id={message.id} callback={deleteMessagesByIndex}/>
-                            } else {
+                            } else if(message.content.length) {
                                 return <Answer key={index} content={message.content} id={message.id} regenerateFunction={regenerateMessage}
                                                function_type={message.step1_decision?.function}/>
                             }
@@ -194,7 +247,7 @@ export default function Chat() {
                      t w-1/20 h-auto rounded-r-3xl flex items-center justify-center transition ease-in-out transition-height`}
                                 ref={buttonRef}
                                 onClick={()=>{handleSendMessage()}}
-                                disabled={loading || !input}>
+                                disabled={(loading || !input) || streaming}>
                             <img src={sendSvg} className={`${(loading || !input) ? "invisible" : ""} transition ease-in-out`} alt="Send"/>
                         </button>
                     </div>

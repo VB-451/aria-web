@@ -17,6 +17,7 @@ export const getMessages = async () => {
             role: "assistant",
             content: element.assistant,
             id: element.id,
+            step1_decision: element.step1_decision
         })
     })
     return {
