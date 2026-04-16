@@ -16,7 +16,7 @@ export default function Chat() {
     const [showShortCuts, setShowShortCuts] = useState(true);
     const [loading, setLoading] = useState(false);
     const [streaming, setStreaming] = useState<boolean>(false);
-    const [counter, setCounter] = useState(-5);
+    const [counter, setCounter] = useState(0);
 
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -131,10 +131,20 @@ export default function Chat() {
         await sendMessage(
             messageToSend,
 
+            (functionType) => {
+                setLoading(false);
+                setStreaming(true);
+                setMessages(prev =>
+                    prev.map(msg =>
+                        (msg.id === counter) && (msg.role === "assistant")
+                            ? { ...msg, step1_decision:{function: functionType} }
+                            : msg
+                    )
+                );
+            },
+
             (chunk) => {
                 accumulated += chunk;
-                setLoading(false);
-                setStreaming(true)
                 setMessages(prev =>
                     prev.map(msg =>
                         (msg.id === counter) && (msg.role === "assistant")
@@ -152,7 +162,8 @@ export default function Chat() {
                             ? {
                                 ...msg,
                                 id: meta.id,
-                                step1_decision: meta.step1_decision
+                                step1_decision: meta.step1_decision,
+                                relevantMemories: meta.relevantMemories,
                             }
                             : msg
                     )

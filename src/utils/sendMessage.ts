@@ -13,6 +13,7 @@
 
 export const sendMessage = async (
     prompt: string,
+    onStart: (functionType: string) => void,
     onChunk: (chunk: string) => void,
     onEnd: (meta: any) => void
 ) => {
@@ -28,6 +29,7 @@ export const sendMessage = async (
     const decoder = new TextDecoder();
 
     let buffer = "";
+    let started = false;
 
     while (true) {
         const { done, value } = await reader.read();
@@ -36,15 +38,26 @@ export const sendMessage = async (
         const chunk = decoder.decode(value);
         buffer += chunk;
 
-        // detect END marker
-        const endIndex = buffer.indexOf("__END__");
+        if (!started) {
+            const startIndex = buffer.indexOf("__START__");
 
+            if (startIndex !== -1) {
+                const functionType = buffer.slice(0, startIndex);
+
+                onStart(functionType);
+
+                buffer = buffer.slice(startIndex + "__START__".length);
+
+                started = true;
+            }
+        }
+
+        const endIndex = buffer.indexOf("__END__");
         if (endIndex !== -1) {
             const metaPart = buffer.slice(endIndex + "__END__".length);
 
             try {
                 const meta = JSON.parse(metaPart);
-                console.log(meta)
                 onEnd(meta);
             } catch {
                 onEnd({});
@@ -53,6 +66,9 @@ export const sendMessage = async (
             return;
         }
 
-        onChunk(chunk);
+        if (started && buffer.length > 0) {
+            onChunk(buffer);
+            buffer = "";
+        }
     }
 };
