@@ -1,16 +1,3 @@
-// export const sendMessage = async (prompt: string) => {
-//     const response = await fetch(`${import.meta.env.VITE_BACK_URL}/chat/message`, {
-//         method: "POST",
-//         headers: {
-//             'Content-Type': 'application/json',
-//         },
-//         body: JSON.stringify({
-//             prompt,
-//         })
-//     })
-//     return await response.json()
-// }
-
 export const sendMessage = async (
     prompt: string,
     onStart: (functionType: string) => void,
@@ -29,46 +16,57 @@ export const sendMessage = async (
     const decoder = new TextDecoder();
 
     let buffer = "";
-    let started = false;
 
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        buffer += chunk;
+        buffer += decoder.decode(value, { stream: true });
 
-        if (!started) {
-            const startIndex = buffer.indexOf("__START__");
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || "";
 
-            if (startIndex !== -1) {
-                const functionType = buffer.slice(0, startIndex);
+        for (const eventBlock of events) {
+            const lines = eventBlock.split("\n");
 
-                onStart(functionType);
+            let eventName = "";
+            let data = "";
 
-                buffer = buffer.slice(startIndex + "__START__".length);
-
-                started = true;
+            for (const line of lines) {
+                if (line.startsWith("event:")) {
+                    eventName = line.replace("event:", "").trim();
+                }
+                if (line.startsWith("data:")) {
+                    data += line.replace("data:", "").trim();
+                }
             }
-        }
 
-        const endIndex = buffer.indexOf("__END__");
-        if (endIndex !== -1) {
-            const metaPart = buffer.slice(endIndex + "__END__".length);
+            if (!eventName) continue;
 
             try {
-                const meta = JSON.parse(metaPart);
-                onEnd(meta);
-            } catch {
-                onEnd({});
+                const parsed = JSON.parse(data);
+
+                switch (eventName) {
+                    case "start":
+                        onStart(parsed.routeFunction);
+                        break;
+
+                    case "token":
+                        onChunk(parsed);
+                        break;
+
+                    case "end":
+                        onEnd(parsed);
+                        console.log(parsed);
+                        return;
+
+                    case "error":
+                        console.error("SSE error:", parsed);
+                        return;
+                }
+            } catch (err) {
+                console.error("Failed to parse SSE data:", data);
             }
-
-            return;
-        }
-
-        if (started && buffer.length > 0) {
-            onChunk(buffer);
-            buffer = "";
         }
     }
 };

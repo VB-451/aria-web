@@ -85,31 +85,6 @@ export default function Chat() {
         buttonRef.current.style.height = inputRef.current.offsetHeight + "px";
     }, [input]);
 
-    // const handleSendMessage = async (text?: string) => {
-    //     const messageToSend = text ?? input;
-    //     if (!messageToSend) return;
-    //     setCounter(prev => prev + 1);
-    //     setMessages(prev => [
-    //         ...prev,
-    //         { role: "user", content: messageToSend, id: counter }
-    //     ]);
-    //     setInput("");
-    //     setLoading(true);
-    //     setShowShortCuts(false)
-    //     const data = await sendMessage(messageToSend);
-    //     console.log(data)
-    //     setLoading(false);
-    //     setMessages(prev => [
-    //         ...prev,
-    //         {
-    //             role: "assistant",
-    //             content: data.reply ?? "Server error",
-    //             id: data.id,
-    //             step1_decision: data.step1_decision
-    //         }
-    //     ]);
-    // }
-
     const handleSendMessage = async (text?: string) => {
         const messageToSend = text ?? input;
         if (!messageToSend) return;
