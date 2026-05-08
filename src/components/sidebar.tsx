@@ -1,5 +1,5 @@
 import newChatSvg from "../assets/newchat.svg";
-import {newChat} from "../utils/newChat.ts";
+import {newChat} from "../api/newChat.ts";
 
 export default function Sidebar() {
 

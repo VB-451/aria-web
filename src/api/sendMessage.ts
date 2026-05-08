@@ -2,14 +2,25 @@ export const sendMessage = async (
     prompt: string,
     onStart: (functionType: string) => void,
     onChunk: (chunk: string) => void,
-    onEnd: (meta: any) => void
+    onEnd: (meta: any) => void,
+    regenerateID?: string,
+    regenerateAnswer?: boolean
 ) => {
+
+    const bodyObject = {
+        prompt,
+        regenerateSiblingNodeID: regenerateID ?? undefined,
+        answerBool: regenerateAnswer
+    }
+
+    console.log(bodyObject)
+
     const response = await fetch(`${import.meta.env.VITE_BACK_URL}/chat/message`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
         },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify(bodyObject),
     });
 
     const reader = response.body!.getReader();

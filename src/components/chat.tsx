@@ -2,25 +2,43 @@ import sendSvg from '../assets/send.svg'
 import addSvg from '../assets/add.svg'
 import Question from "./question.tsx";
 import Answer from "./answer.tsx";
-import {useEffect, useRef, useState} from "react";
-import {sendMessage} from "../utils/sendMessage.ts";
+import {useEffect, useMemo, useRef, useState} from "react";
+import {sendMessage} from "../api/sendMessage.ts";
 import Loading from "./loading.tsx";
-import {getMessages} from "../utils/getMessages.ts";
+import {getMessages} from "../api/getMessages.ts";
 import ShortCut from "./shortcut.tsx";
+import type {Conversation} from "../types/Conversation.ts";
+import {
+    addSibling,
+    appendAssistantMessage,
+    appendUserMessage,
+    deleteSubtree,
+    getPath,
+    switchBranch
+} from "../utils/conversation.ts";
+import {fetchSwitchBranch} from "../api/fetchSwitchBranch.ts";
+import {deleteFromID} from "../api/deleteFromID.ts";
+import Streaming from "./streaming.tsx";
 
 
 export default function Chat() {
 
-    const [messages, setMessages] = useState<{ role: string; content: string; id: number; step1_decision?: {function: string} }[]>([]);
+    const [conversation, setConversation] = useState<Conversation>({nodes: {}, currentNodeId:"123412", rootId:""});
     const [input, setInput] = useState("");
+    const [userMessage, setUserMessage] = useState<string>("");
     const [showShortCuts, setShowShortCuts] = useState(true);
     const [loading, setLoading] = useState(false);
-    const [streaming, setStreaming] = useState<boolean>(false);
-    const [counter, setCounter] = useState(0);
+    const [streamingMessage, setStreamingMessage] = useState<string>("");
+    const [streamingFunction, setStreamingFunction] = useState<string>("");
+
+    const visibleMessages = useMemo(() => {
+        return getPath(conversation, conversation.currentNodeId)
+    }, [conversation])
 
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLTextAreaElement | null>(null);
     const buttonRef =useRef<HTMLButtonElement | null>(null);
+    const streamingFunctionRef = useRef("");
 
     const shortCuts = [
         {
@@ -62,10 +80,10 @@ export default function Chat() {
     useEffect(() => {
         const getData = async () =>{
             const lastMessages = await getMessages();
-            setMessages(lastMessages.messages);
-            setCounter(lastMessages.counter);
+            setConversation(lastMessages);
             console.log(lastMessages);
-            if(lastMessages.messages.length){
+
+            if(Object.keys(lastMessages.nodes).length > 1){
                 setShowShortCuts(false);
             }
         }
@@ -74,7 +92,7 @@ export default function Chat() {
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages]);
+    }, [visibleMessages, streamingMessage]);
 
     useEffect(() => {
         if (!inputRef.current) return
@@ -85,66 +103,53 @@ export default function Chat() {
         buttonRef.current.style.height = inputRef.current.offsetHeight + "px";
     }, [input]);
 
-    const handleSendMessage = async (text?: string) => {
+    const handleSendMessage = async (text?: string, regenerateID?: string, regenerateAnswer?: boolean) => {
+
         const messageToSend = text ?? input;
         if (!messageToSend) return;
-
-        setCounter(prev => prev + 1);
-
-        setMessages(prev => [
-            ...prev,
-            { role: "user", content: messageToSend, id: counter },
-            { role: "assistant", content: "", id: counter}
-        ]);
-
+        setUserMessage(messageToSend);
         setInput("");
         setLoading(true);
         setShowShortCuts(false);
+        setStreamingMessage(" ")
 
         let accumulated = "";
 
-        await sendMessage(
-            messageToSend,
+        await sendMessage(messageToSend,
 
-            (functionType) => {
+            (functionType) =>{
                 setLoading(false);
-                setStreaming(true);
-                setMessages(prev =>
-                    prev.map(msg =>
-                        (msg.id === counter) && (msg.role === "assistant")
-                            ? { ...msg, step1_decision:{function: functionType} }
-                            : msg
-                    )
-                );
+                streamingFunctionRef.current = functionType
+                setStreamingFunction(functionType);
             },
 
-            (chunk) => {
+            (chunk) =>{
                 accumulated += chunk;
-                setMessages(prev =>
-                    prev.map(msg =>
-                        (msg.id === counter) && (msg.role === "assistant")
-                            ? { ...msg, content: accumulated }
-                            : msg
-                    )
-                );
+                setStreamingMessage(accumulated);
             },
 
-            (meta) => {
-                setStreaming(false)
-                setMessages(prev =>
-                    prev.map(msg =>
-                        (msg.id === counter) && (msg.role === "assistant")
-                            ? {
-                                ...msg,
-                                id: meta.id,
-                                step1_decision: meta.step1_decision,
-                                relevantMemories: meta.relevantMemories,
-                            }
-                            : msg
-                    )
-                );
-            }
-        );
+            (meta) =>{
+                setConversation(prev =>{
+                    let next = prev;
+                    if(!regenerateID){
+                        next = appendUserMessage(prev, messageToSend, meta.parent_id);
+                        next = appendAssistantMessage(next, accumulated, meta.id, streamingFunctionRef.current)
+                    } else if(regenerateAnswer){
+                        next = addSibling(next, regenerateID, accumulated, meta.id, streamingFunctionRef.current, true)
+                    } else {
+                        next = addSibling(next, regenerateID, messageToSend, meta.parent_id, null, false)
+                        next = appendAssistantMessage(next, accumulated, meta.id, streamingFunctionRef.current)
+                    }
+                    return next;
+                })
+            },
+            regenerateID,
+            regenerateAnswer
+        )
+
+        setStreamingMessage("")
+        setStreamingFunction("")
+
     };
 
     const handleShortCut = (prompt: string) => {
@@ -158,41 +163,70 @@ export default function Chat() {
         setShowShortCuts(!showShortCuts);
     }
 
-    const deleteMessagesByIndex = (index: number) => {
-        setMessages(prevMessages => {
-            return prevMessages.filter(msg => msg.id < index);
-        });
+    const deleteMessagesByID = (id: string) => {
+        setConversation(prev => deleteSubtree(prev, id));
+        deleteFromID(id);
     };
 
-    const regenerateMessage = async (id: number) => {
-        const question = messages.find(message => message.id === id) || {id:0, content:""};
-        deleteMessagesByIndex(question.id);
-        await handleSendMessage(question.content);
+    const regenerateAnswer = async (id: string) => {
+        const selectedMessageParentID = conversation.nodes[id].parentId;
+        const aboveParentID = conversation.nodes[selectedMessageParentID].parentId;
+        setConversation(prev => {
+            return {
+                ...prev,
+                currentNodeId: aboveParentID
+            }
+        })
+        await handleSendMessage(conversation.nodes[selectedMessageParentID].content, id, true)
     }
+
+    const editQuestion = async (id: string, newContent: string) => {
+        const selectedMessageParentID = conversation.nodes[id].parentId;
+        setConversation(prev => {
+            return {
+                ...prev,
+                currentNodeId: selectedMessageParentID
+            }
+        })
+        await handleSendMessage(newContent, id, false);
+    }
+
+    const switchSiblingBranch = async (id: string) => {
+        setConversation(prev => switchBranch(prev, id));
+        await fetchSwitchBranch(id)
+    }
+
 
     return (
         <>
             <div className="h-9 w-full bg-linear-to-b from-black absolute z-5" />
             <div id="chat" className="w-full h-screen overflow-hidden z-2">
-                <div id="messages" className={`${messages.length ? "h-[95vh]" : "h-[30vh]"} overflow-y-auto flex justify-center flex-wrap pt-24 pb-12`}>
+                <div id="messages" className={`${(visibleMessages.length > 1) || loading || streamingMessage ? "h-[95vh]" : "h-[30vh]"} overflow-y-auto flex justify-center flex-wrap pt-24 pb-12`}>
                     <div className="w-[40%] flex flex-col justify-end">
-                        {messages.map((message, index) => {
+                        {visibleMessages.map((message) => {
                             if (message.role === "user") {
-                                return <Question key={index} content={message.content} id={message.id} callback={deleteMessagesByIndex}/>
-                            } else if(message.content.length) {
-                                return <Answer key={index} content={message.content} id={message.id} regenerateFunction={regenerateMessage}
-                                               function_type={message.step1_decision?.function}/>
+                                const parent = conversation.nodes[message.parentId]
+                                const siblings = parent.childrenIds.length > 1 ? parent.childrenIds : [];
+                                return <Question key={message.id} content={message.content} id={message.id} siblings={siblings}
+                                                 onDelete={deleteMessagesByID} onSwitchBranch={switchSiblingBranch} onEdit={editQuestion}/>
+                            } else if(message.role === "assistant") {
+                                const parent = conversation.nodes[message.parentId]
+                                const siblings = parent.childrenIds.length > 1 ? parent.childrenIds : [];
+                                return <Answer key={message.id} content={message.content} id={message.id} onRegenerate={regenerateAnswer}
+                                               function_type={message.function_type} siblings={siblings} onSwitchBranch={switchSiblingBranch}/>
                             }
                         })}
-
+                        {streamingMessage && (
+                            <Streaming userContent={userMessage} assistantContent={streamingMessage} function_type={streamingFunction} />
+                        )}
                         {loading && (
                             <Loading />
                         )}
                         <div ref={messagesEndRef}/>
                     </div>
                 </div>
-                <div id="input" className={`${messages.length ? "absolute bottom-0" : ""} w-full flex flex-col justify-center items-center mb-5`}>
-                    {!messages.length && (
+                <div id="input" className={`${(visibleMessages.length > 1) || loading || streamingMessage  ? "absolute bottom-0" : ""} w-full flex flex-col justify-center items-center mb-5`}>
+                    {(visibleMessages.length === 1 && !streamingMessage && !loading) && (
                         <p className={`text-3xl font-semibold ${showShortCuts ? "mb-1.5" : "mb-11"}`}>
                             <span className="bg-linear-to-r from-primary_purple to-primary_zvet bg-clip-text text-transparent text-4xl">Aria </span>
                             is your personal
@@ -216,7 +250,7 @@ export default function Chat() {
                             </button>
                         </div>
                         <textarea
-                            className="bg-[#303030] w-18/20 pl-1 pr-4 pt-3 pb-2 flex items-center justify-center outline-0 resize-none"
+                            className="bg-[#303030] w-18/20 pl-1 pr-4 pt-3 pb-2 outline-0 resize-none"
                             ref={inputRef}
                             placeholder={loading ? "Loading..." : "Say hi to Aria..."}
                             onChange={(e) => setInput(e.target.value)}
@@ -229,11 +263,11 @@ export default function Chat() {
                             }}
                             readOnly={loading}
                         ></textarea>
-                        <button className={`${(loading || !input) ? "bg-[#303030]" : "bg-primary_purple hover:cursor-pointer"}
+                        <button className={`${(loading || !input) || (streamingMessage) ? "bg-[#303030]" : "bg-primary_purple hover:cursor-pointer"}
                      t w-1/20 h-auto rounded-r-3xl flex items-center justify-center transition ease-in-out transition-height`}
                                 ref={buttonRef}
                                 onClick={()=>{handleSendMessage()}}
-                                disabled={(loading || !input) || streaming}>
+                                disabled={(loading || !input) || (streamingMessage)}>
                             <img src={sendSvg} className={`${(loading || !input) ? "invisible" : ""} transition ease-in-out`} alt="Send"/>
                         </button>
                     </div>
