@@ -1,4 +1,4 @@
-export const deleteFromID = async (userNodeID: string) => {
+export const deleteMessageFromID = async (userNodeID: string) => {
     const response = await fetch(`${import.meta.env.VITE_BACK_URL}/conversation/message`, {
         method: "DELETE",
         headers: {

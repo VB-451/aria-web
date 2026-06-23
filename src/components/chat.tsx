@@ -1,12 +1,11 @@
 import sendSvg from '../assets/send.svg'
 import addSvg from '../assets/add.svg'
-import Question from "./question.tsx";
-import Answer from "./answer.tsx";
+import Question from "./chat-components/question.tsx";
+import Answer from "./chat-components/answer.tsx";
 import {useEffect, useMemo, useRef, useState} from "react";
 import {sendMessage} from "../api/sendMessage.ts";
-import Loading from "./loading.tsx";
-import {getMessages} from "../api/getMessages.ts";
-import ShortCut from "./shortcut.tsx";
+import Loading from "./chat-components/loading.tsx";
+import {getMessages} from "../api/conversation/getMessages.ts";
 import type {Conversation} from "../types/Conversation.ts";
 import {
     addSibling,
@@ -16,12 +15,17 @@ import {
     getPath,
     switchBranch
 } from "../utils/conversation.ts";
-import {fetchSwitchBranch} from "../api/fetchSwitchBranch.ts";
-import {deleteFromID} from "../api/deleteFromID.ts";
-import Streaming from "./streaming.tsx";
+import {fetchSwitchBranch} from "../api/conversation/fetchSwitchBranch.ts";
+import {deleteMessageFromID} from "../api/conversation/deleteMessageFromID.ts";
+import Streaming from "./chat-components/streaming.tsx";
+import { marked } from "marked";
+import { convert } from "html-to-text";
+import {postTTS} from "../api/postTTS.ts";
+import {useSettings} from "../providers/settings-provider.tsx";
+import Shortcuts from "./shortcuts/shortcuts.tsx";
 
 
-export default function Chat() {
+export default function Chat({autoTTSState} : {autoTTSState: boolean}) {
 
     const [conversation, setConversation] = useState<Conversation>({nodes: {}, currentNodeId:"123412", rootId:""});
     const [input, setInput] = useState("");
@@ -30,6 +34,8 @@ export default function Chat() {
     const [loading, setLoading] = useState(false);
     const [streamingMessage, setStreamingMessage] = useState<string>("");
     const [streamingFunction, setStreamingFunction] = useState<string>("");
+
+    const { settings } = useSettings();
 
     const visibleMessages = useMemo(() => {
         return getPath(conversation, conversation.currentNodeId)
@@ -40,38 +46,7 @@ export default function Chat() {
     const buttonRef =useRef<HTMLButtonElement | null>(null);
     const streamingFunctionRef = useRef("");
 
-    const shortCuts = [
-        {
-            function: "Todo",
-            name:"All",
-            prompt: "How's the todo looking?"
-        },
-        {
-            function: "Todo",
-            name:"Due Today",
-            prompt: "Are there any tasks due today?"
-        },
-        {
-            function: "Weather",
-            name:"Now",
-            prompt: "How's the weather now?"
-        },
-        {
-            function: "Weather",
-            name:"Week",
-            prompt: "Summarise the next 7 days weather."
-        },
-        {
-            function: "Exec",
-            name:"Daily",
-            prompt: "Launch the daily links."
-        },
-        {
-            function: "Exec",
-            name:"Auditorium",
-            prompt: "Run the auditorium apps."
-        }
-    ]
+    const shortCuts = JSON.parse(localStorage.getItem("shortCuts")) || [];
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -104,6 +79,10 @@ export default function Chat() {
     }, [input]);
 
     const handleSendMessage = async (text?: string, regenerateID?: string, regenerateAnswer?: boolean) => {
+
+        if(loading || streamingMessage){
+            return;
+        }
 
         const messageToSend = text ?? input;
         if (!messageToSend) return;
@@ -149,6 +128,10 @@ export default function Chat() {
 
         setStreamingMessage("")
         setStreamingFunction("")
+        if(autoTTSState){
+            const clearedText = convert(marked(accumulated));
+            await postTTS(clearedText, settings.ttsVolume)
+        }
 
     };
 
@@ -165,7 +148,7 @@ export default function Chat() {
 
     const deleteMessagesByID = (id: string) => {
         setConversation(prev => deleteSubtree(prev, id));
-        deleteFromID(id);
+        deleteMessageFromID(id);
     };
 
     const regenerateAnswer = async (id: string) => {
@@ -227,21 +210,14 @@ export default function Chat() {
                 </div>
                 <div id="input" className={`${(visibleMessages.length > 1) || loading || streamingMessage  ? "absolute bottom-0" : ""} w-full flex flex-col justify-center items-center mb-5`}>
                     {(visibleMessages.length === 1 && !streamingMessage && !loading) && (
-                        <p className={`text-3xl font-semibold ${showShortCuts ? "mb-1.5" : "mb-11"}`}>
-                            <span className="bg-linear-to-r from-primary_purple to-primary_zvet bg-clip-text text-transparent text-4xl">Aria </span>
+                        <p className={`text-3xl font-semibold ${showShortCuts ? "mb-1" : "mb-10"}`}>
+                            <span className="bg-linear-to-r from-primary_purple to-primary_mauve bg-clip-text text-transparent text-4xl">Aria </span>
                             is your personal
-                            <span className="bg-linear-to-l from-primary_purple to-primary_zvet bg-clip-text text-transparent text-3xl"> AI </span>
+                            <span className="bg-linear-to-l from-primary_purple to-primary_mauve bg-clip-text text-transparent text-3xl"> AI </span>
                             assistant
                         </p>
                     )}
-                    {showShortCuts && (
-                        <div className="w-fit h-[30px] mb-2 flex px-5 animate-fadeIn">
-                            {shortCuts.map((shortcut, index) => {
-                                return <ShortCut function_name={shortcut.function} prompt={shortcut.prompt}
-                                                 action={handleShortCut} key={index} name={shortcut.name}/>
-                            })}
-                        </div>
-                    )}
+                    {showShortCuts && (<Shortcuts onHandleShortcut={handleShortCut} />)}
                     <div className="w-[40%] flex rounded-3xl flex-row justify-center">
                         <div className="w-1/20 flex justify-center items-center rounded-l-3xl bg-[#303030]">
                             <button className="ml-1 p-1 inline-flex rounded-3xl hover:bg-[#444444]"
@@ -264,7 +240,7 @@ export default function Chat() {
                             readOnly={loading}
                         ></textarea>
                         <button className={`${(loading || !input) || (streamingMessage) ? "bg-[#303030]" : "bg-primary_purple hover:cursor-pointer"}
-                     t w-1/20 h-auto rounded-r-3xl flex items-center justify-center transition ease-in-out transition-height`}
+                     t w-1/20 h-auto rounded-r-3xl flex items-center justify-center transition ease-in-out`}
                                 ref={buttonRef}
                                 onClick={()=>{handleSendMessage()}}
                                 disabled={(loading || !input) || (streamingMessage)}>

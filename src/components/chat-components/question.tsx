@@ -1,7 +1,7 @@
 import React, {useState} from "react";
-import copySvg from "../assets/copy.svg";
-import cancelSvg from "../assets/cancel.svg";
-import editSvg from "../assets/edit.svg";
+import copySvg from "../../assets/copy.svg";
+import cancelSvg from "../../assets/cancel.svg";
+import editSvg from "../../assets/edit.svg";
 
 function Question({content, id, siblings, onDelete, onSwitchBranch, onEdit } : {content: string, id: string, siblings:string[], onDelete: (id: string) => void, onSwitchBranch: (id: string) => void, onEdit: (id: string, newContent: string) => void}) {
 

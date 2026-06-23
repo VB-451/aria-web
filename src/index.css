@@ -5,10 +5,13 @@
   --color-primary_red: #cc3f48;
   --color-primary_green: #39a332;
   --color-primary_cyan: #3f8fcc;
-  --color-primary_zvet: #7d3fcc;
+  --color-primary_mauve: #7d3fcc;
   --color-primary_brown: #cc7d3f;
+  --color-primary_blue: #4285f4;
   --color-background:#0E1113;
 }
+
+@source inline("-primary_purple");
 
 @layer utilities {
   /* Fade In */
@@ -26,6 +29,16 @@
     animation: fadeIn 0.25s ease-out forwards;
   }
 
+}
+
+@layer base {
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
 }
 
 
@@ -92,6 +105,10 @@ body {
   background: transparent;
 }
 
+.horizontal-scroll::-webkit-scrollbar {
+  height: 0;
+}
+
 ::-webkit-scrollbar-thumb {
   background: #a1a1a1;
   border-radius: 15px;
@@ -99,5 +116,14 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;             /* Chrome, Safari */
 }
 
