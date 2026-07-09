@@ -1,5 +1,5 @@
 import {createContext, type PropsWithChildren, useContext, useEffect, useState} from "react";
-import type {NodeEntry} from "../types/NodeEntry.ts";
+import type {NodeEntryType} from "../types/NodeEntryType.ts";
 import {getWhitelist} from "../api/whitelist/getWhitelist.ts";
 import {deleteGroup} from "../api/whitelist/deleteGroup.ts";
 import {deleteItem} from "../api/whitelist/deleteItem.ts";
@@ -21,7 +21,7 @@ type WhitelistProviderType = {
     whitelist: Whitelist;
     removeGroup: (section: string, key: string) => Promise<void>;
     removeItem: (section: string, key: string, index: number) => Promise<void>;
-    upsertNodeGroup: (name: string, entry: NodeEntry) => Promise<void>;
+    upsertNodeGroup: (name: string, entry: NodeEntryType) => Promise<void>;
     addItem : (section: string, key: string, item: string) => Promise<void>;
 }
 
@@ -61,7 +61,7 @@ export function WhitelistProvider({ children }: PropsWithChildren){
         }));
     };
 
-    const upsertNodeGroup = async (name: string, entry: NodeEntry) => {
+    const upsertNodeGroup = async (name: string, entry: NodeEntryType) => {
         await postKeyToNode(name, entry);
         setWhitelist((previous) => ({
             ...previous,

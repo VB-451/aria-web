@@ -6,7 +6,7 @@ import {useEffect, useMemo, useRef, useState} from "react";
 import {sendMessage} from "../api/sendMessage.ts";
 import Loading from "./chat-components/loading.tsx";
 import {getMessages} from "../api/conversation/getMessages.ts";
-import type {Conversation} from "../types/Conversation.ts";
+import type {ConversationType} from "../types/ConversationType.ts";
 import {
     addSibling,
     appendAssistantMessage,
@@ -27,7 +27,7 @@ import Shortcuts from "./shortcuts/shortcuts.tsx";
 
 export default function Chat({autoTTSState} : {autoTTSState: boolean}) {
 
-    const [conversation, setConversation] = useState<Conversation>({nodes: {}, currentNodeId:"123412", rootId:""});
+    const [conversation, setConversation] = useState<ConversationType>({nodes: {}, currentNodeId:"123412", rootId:""});
     const [input, setInput] = useState("");
     const [userMessage, setUserMessage] = useState<string>("");
     const [showShortCuts, setShowShortCuts] = useState(true);

@@ -1,6 +1,6 @@
-import type {NodeEntry} from "../../types/NodeEntry.ts";
+import type {NodeEntryType} from "../../types/NodeEntryType.ts";
 
-export const postKeyToNode = async (name: string, entry: NodeEntry) =>{
+export const postKeyToNode = async (name: string, entry: NodeEntryType) =>{
     await fetch(`${import.meta.env.VITE_BACK_URL}/whitelist/node`, {
         method: 'POST',
         headers: {

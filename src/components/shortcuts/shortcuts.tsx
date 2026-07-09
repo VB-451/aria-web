@@ -12,7 +12,6 @@ export default function Shortcuts({onHandleShortcut} : {onHandleShortcut: (promp
     const { showModal } = useModal();
 
     useEffect(() => {
-        console.log(shortcutsArray)
         localStorage.setItem("shortCuts", JSON.stringify(shortcutsArray));
     }, [shortcutsArray]);
 

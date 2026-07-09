@@ -1,4 +1,4 @@
-export interface MessageNode {
+export interface MessageNodeType {
     id: string;
     parentId: string;
     childrenIds: string[];

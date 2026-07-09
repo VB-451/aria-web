@@ -1,13 +1,13 @@
-import type {Conversation} from "../types/Conversation.ts";
-import type {MessageNode} from "../types/MessageNode.ts";
+import type {ConversationType} from "../types/ConversationType.ts";
+import type {MessageNodeType} from "../types/MessageNodeType.ts";
 
-const addChildId = (node: MessageNode, childId: string) => ({
+const addChildId = (node: MessageNodeType, childId: string) => ({
     ...node,
     childrenIds: [...node.childrenIds, childId]
 });
 
 const appendNode = (
-    conversation: Conversation,
+    conversation: ConversationType,
     parentId: string,
     {
         id,
@@ -49,7 +49,7 @@ const appendNode = (
 };
 
 export const appendUserMessage = (
-    conversation: Conversation,
+    conversation: ConversationType,
     content: string,
     id: string
 ) => {
@@ -67,7 +67,7 @@ export const appendUserMessage = (
 };
 
 export const appendAssistantMessage = (
-    conversation: Conversation,
+    conversation: ConversationType,
     content: string,
     id: string,
     function_type: string | null
@@ -86,7 +86,7 @@ export const appendAssistantMessage = (
     });
 };
 
-export const addSibling = (conversation: Conversation, assistantNodeId: string, newContent: string, id:string, function_type: string | null, ifAnswer: boolean) => {
+export const addSibling = (conversation: ConversationType, assistantNodeId: string, newContent: string, id:string, function_type: string | null, ifAnswer: boolean) => {
     const assistantNode = conversation.nodes[assistantNodeId]
 
     if (!assistantNode) {
@@ -108,7 +108,7 @@ export const addSibling = (conversation: Conversation, assistantNodeId: string, 
     })
 }
 
-export const deleteSubtree = (conversation: Conversation, nodeId: string) => {
+export const deleteSubtree = (conversation: ConversationType, nodeId: string) => {
     const newConversation = {
         ...conversation,
         nodes: { ...conversation.nodes }
@@ -148,9 +148,9 @@ export const deleteSubtree = (conversation: Conversation, nodeId: string) => {
     return newConversation;
 };
 
-export const getPath = (conversation: Conversation, nodeId: string) => {
+export const getPath = (conversation: ConversationType, nodeId: string) => {
     const path = []
-    let current: MessageNode | null = conversation.nodes[nodeId]
+    let current: MessageNodeType | null = conversation.nodes[nodeId]
 
     while (current) {
         path.push(current)
@@ -162,7 +162,7 @@ export const getPath = (conversation: Conversation, nodeId: string) => {
     return path.reverse()
 }
 
-export const switchBranch = (conversation: Conversation, nodeId: string) => {
+export const switchBranch = (conversation: ConversationType, nodeId: string) => {
     if (!conversation.nodes[nodeId]) {
         throw new Error('Node not found')
     }
