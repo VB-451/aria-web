@@ -6,14 +6,14 @@ import { marked } from "marked";
 import { convert } from "html-to-text";
 import { postTTS } from "../../api/postTTS.ts";
 import MarkdownComponent from "./markdown-component.tsx";
-import {useSettings} from "../../providers/settings-provider.tsx";
+import {useSelector} from "react-redux";
 
 function Answer({content, id, onRegenerate, function_type = "null", siblings, onSwitchBranch} : {content: string, id: string, onRegenerate: (id: string)=>void, function_type: string | null, siblings: string[] , onSwitchBranch: (id: string) => void} ) {
 
     let color : string;
     const simpleText = useMemo(() => convert(marked(content)), [content]);
 
-    const { settings } = useSettings();
+    const ttsVolume = useSelector(state => state.settings.ttsVolume)
 
     console.log("rerendering")
 
@@ -32,7 +32,7 @@ function Answer({content, id, onRegenerate, function_type = "null", siblings, on
     }
 
     const handleTTS = async () => {
-        await postTTS(simpleText, settings.ttsVolume);
+        await postTTS(simpleText, ttsVolume);
     }
 
     const handleRegenerate = async () => {

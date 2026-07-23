@@ -1,4 +1,3 @@
-import {useSettings} from "../providers/settings-provider.tsx";
 import {useState} from "react";
 
 import General from "../assets/settings.svg"
@@ -11,9 +10,11 @@ import MemoryCategory from "./settings-categories/memory.tsx";
 import VoiceCategory from "./settings-categories/voice.tsx";
 import WatchersCategory from "./settings-categories/watchers.tsx";
 import WhitelistCategory from "./settings-categories/whitelist.tsx";
+import {useDispatch} from "react-redux";
+import {resetSettings} from "../redux/settings/settings-slice.ts";
+import {saveSettings} from "../redux/settings/settings-thunks.ts";
 
 export default function Settings(){
-    const { resetSettings } = useSettings();
     const [selectedCategory, setSelectedCategory] = useState<string>("General")
 
     const categories = [
@@ -23,6 +24,13 @@ export default function Settings(){
         { name: "Watchers", icon: Watchers },
         { name: "Whitelist", icon: Whitelist}
     ];
+
+    const dispatch = useDispatch();
+
+    const handleReset = () => {
+        dispatch(resetSettings())
+        dispatch(saveSettings())
+    }
 
     return (
         <div className="bg-background w-[800px] h-[400px] rounded-lg flex">
@@ -39,7 +47,7 @@ export default function Settings(){
                     ))}
                 </div>
                 <button className="hover:bg-primary_red/85 transition-colors w-fit px-2 py-1 rounded"
-                onClick={resetSettings}
+                onClick={handleReset}
                 >Reset to default</button>
             </div>
             <div className="px-2 w-full">

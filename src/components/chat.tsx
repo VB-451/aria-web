@@ -21,8 +21,8 @@ import Streaming from "./chat-components/streaming.tsx";
 import { marked } from "marked";
 import { convert } from "html-to-text";
 import {postTTS} from "../api/postTTS.ts";
-import {useSettings} from "../providers/settings-provider.tsx";
 import Shortcuts from "./shortcuts/shortcuts.tsx";
+import {useSelector} from "react-redux";
 
 
 export default function Chat({autoTTSState} : {autoTTSState: boolean}) {
@@ -35,7 +35,7 @@ export default function Chat({autoTTSState} : {autoTTSState: boolean}) {
     const [streamingMessage, setStreamingMessage] = useState<string>("");
     const [streamingFunction, setStreamingFunction] = useState<string>("");
 
-    const { settings } = useSettings();
+    const ttsVolume = useSelector(state => state.settings.ttsVolume)
 
     const visibleMessages = useMemo(() => {
         return getPath(conversation, conversation.currentNodeId)
@@ -45,8 +45,6 @@ export default function Chat({autoTTSState} : {autoTTSState: boolean}) {
     const inputRef = useRef<HTMLTextAreaElement | null>(null);
     const buttonRef =useRef<HTMLButtonElement | null>(null);
     const streamingFunctionRef = useRef("");
-
-    const shortCuts = JSON.parse(localStorage.getItem("shortCuts")) || [];
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -130,7 +128,7 @@ export default function Chat({autoTTSState} : {autoTTSState: boolean}) {
         setStreamingFunction("")
         if(autoTTSState){
             const clearedText = convert(marked(accumulated));
-            await postTTS(clearedText, settings.ttsVolume)
+            await postTTS(clearedText, ttsVolume)
         }
 
     };
